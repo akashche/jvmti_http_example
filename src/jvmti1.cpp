@@ -23,10 +23,10 @@ jvmtiCapabilities caps;
 jvmtiEventCallbacks callbacks;
 
 pion::http::streaming_server* server = nullptr;
-
 // not actually required as server is single-threaded
 std::mutex web_mutex;
 
+// basic thread communication
 std::string shared_query;
 std::mutex shared_query_mutex;
 std::condition_variable shared_query_cond;
@@ -74,11 +74,8 @@ std::string get_shared_resp() {
     return shared_resp;
 }
 
-
-
-/* Creates a new jthread */
-static jthread
-alloc_thread(JNIEnv* env) {
+// helper function
+jthread alloc_thread(JNIEnv* env) {
     // todo: result checks
     jclass thrClass = env->FindClass("java/lang/Thread");
     jmethodID cid = env->GetMethodID(thrClass, "<init>", "()V");
@@ -86,6 +83,7 @@ alloc_thread(JNIEnv* env) {
     return res;
 }
 
+// jvmti access worker
 void JNICALL worker_fun(jvmtiEnv* jvmti, JNIEnv* jni, void* p) {   
     (void) jni;
     (void) p;
@@ -108,11 +106,10 @@ void JNICALL worker_fun(jvmtiEnv* jvmti, JNIEnv* jni, void* p) {
     }
 }
 
-/* Callback for JVMTI_EVENT_VM_INIT */
-static void JNICALL
-vm_init(jvmtiEnv *jvmti, JNIEnv *env, jthread thread) {
+// required for worker init
+static void JNICALL vm_init(jvmtiEnv *jvmti, JNIEnv *env, jthread thread) {
     (void) thread;
-    // todo: err
+    // todo: error checking
     jvmti->RunAgentThread(alloc_thread(env), worker_fun, NULL, JVMTI_THREAD_MAX_PRIORITY);
 }
 
@@ -138,9 +135,10 @@ void start_http_server() {
 //    server.stop(true);
 }
 
-void add_capabilities(JavaVM *jvm) {
+void init_jvmti(JavaVM *jvm) {
     jvm->GetEnv((void **) &jvmti, JVMTI_VERSION);    
     memset(&caps, 0, sizeof (caps));
+    // not actually used
     caps.can_generate_all_class_hook_events = 1;
     caps.can_tag_objects = 1;
     caps.can_get_source_file_name = 1;
@@ -157,7 +155,7 @@ void add_capabilities(JavaVM *jvm) {
     }
     memset(&callbacks, 0, sizeof (callbacks));
     callbacks.VMInit = &vm_init;
-    // todo: errs
+    // todo: errors checking
     jvmti->SetEventCallbacks(&callbacks, sizeof(callbacks));
     jvmti->SetEventNotificationMode(JVMTI_ENABLE, JVMTI_EVENT_VM_INIT, NULL);
 }
@@ -165,17 +163,10 @@ void add_capabilities(JavaVM *jvm) {
 JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *jvm, char *options, void *reserved) {
     (void) options;
     (void) reserved;
-    add_capabilities(jvm);
+    init_jvmti(jvm);
     std::cout << "I am loaded" << std::endl;
     start_http_server();    
     std::cout << "Agent HTTP server started" << std::endl;
-    
-//    char* errbuf = nullptr;
-//    jvmti->GetErrorName(JVMTI_ERROR_NONE, &errbuf);
-//    std::cout << "No error: " << errbuf << std::endl;
-//    jvmti->Deallocate(reinterpret_cast<unsigned char*> (errbuf));
-    
-    
     return JNI_OK;
 }
 
@@ -183,9 +174,4 @@ JNIEXPORT void JNICALL Agent_OnUnload(JavaVM *vm) {
     (void) vm;
     server->stop(false);
     std::cout << "Agent HTTP server stopped" << std::endl;
-    
-//    char* errbuf = nullptr;
-//    jvmti->GetErrorName(JVMTI_ERROR_NONE, &errbuf);
-//    std::cout << "No error: " << errbuf << std::endl;
-//    jvmti->Deallocate(reinterpret_cast<unsigned char*> (errbuf));
 }
