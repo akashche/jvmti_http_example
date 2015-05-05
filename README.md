@@ -9,6 +9,7 @@ Build and run steps:
     git clone https://github.com/akashche/jvmti_http_example.git
     cd jvmti_http_example
     mkdir build
+    cd build
     cmake ..
     make
     javac -d . ../test/App.java && java -agentpath:`pwd`/libjvmti1.so App
