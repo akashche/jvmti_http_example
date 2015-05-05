@@ -14,7 +14,7 @@ Build and run steps:
     make
     javac -d . ../test/App.java && java -agentpath:`pwd`/libjvmti1.so App
 
-HTTP server will be started on port 8080 with path jvmti1:
+HTTP server will be started on port 8080 with path jvmti1 and will return the value of `java.home` system property:
 
     curl http://127.0.0.1:8080/jvmti1
     ---
