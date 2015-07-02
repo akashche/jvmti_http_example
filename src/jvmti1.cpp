@@ -37,7 +37,7 @@ std::condition_variable shared_resp_cond;
 bool shared_resp_flag;
 
 void set_shared_query(std::string st) {
-    std::unique_lock<std::mutex> lock(shared_query_mutex, std::try_to_lock);
+    std::lock_guard<std::mutex> lock(shared_query_mutex);
     shared_query = std::move(st);
     shared_query_flag = true;
     shared_query_cond.notify_one();
@@ -45,7 +45,7 @@ void set_shared_query(std::string st) {
 }
 
 std::string get_shared_query() {
-    std::unique_lock<std::mutex> lock(shared_query_mutex, std::try_to_lock);
+    std::unique_lock<std::mutex> lock(shared_query_mutex);
     while(!shared_query_flag) {
         shared_query_cond.wait(lock);
     }
@@ -56,7 +56,7 @@ std::string get_shared_query() {
 }
 
 void set_shared_resp(std::string st) {
-    std::unique_lock<std::mutex> lock(shared_resp_mutex, std::try_to_lock);
+    std::lock_guard<std::mutex> lock(shared_resp_mutex);
     shared_resp = std::move(st);
     shared_resp_flag = true;
     shared_resp_cond.notify_one();
@@ -64,7 +64,7 @@ void set_shared_resp(std::string st) {
 }
 
 std::string get_shared_resp() {
-    std::unique_lock<std::mutex> lock(shared_resp_mutex, std::try_to_lock);
+    std::unique_lock<std::mutex> lock(shared_resp_mutex);
     while (!shared_resp_flag) {
         shared_resp_cond.wait(lock);
     }
@@ -122,7 +122,7 @@ void start_http_server() {
                 auto finfun = std::bind(&pion::tcp::connection::finish, conn);
                 auto writer = pion::http::response_writer::create(conn, *req, finfun);
                 // logic
-                std::unique_lock<std::mutex> lock(web_mutex, std::try_to_lock);
+                std::lock_guard<std::mutex> lock(web_mutex);
                 set_shared_query("java.home");
                 auto resp = get_shared_resp();
                 writer << "---\n";
